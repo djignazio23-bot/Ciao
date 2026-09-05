@@ -27,7 +27,7 @@ jobs:
 
       - name: Unzip project
         run: |
-          unzip -o Peugeot208OBDTool_Professional_GitHub.zip -d project
+          unzip -o Peugeot208OBDTool_Professional_GitHub_v2.1.zip -d project
 
       - name: Build APK
         working-directory: project/Peugeot208OBDTool_Professional_GitHub
