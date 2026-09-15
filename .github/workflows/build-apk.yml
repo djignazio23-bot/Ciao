@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Peugeot 208 Technician v2 APK
 
 on:
   workflow_dispatch:
@@ -6,35 +6,53 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Java 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: 8.9
+          gradle-version: "8.13"
 
-      - name: Unzip project
+      - name: Install Android SDK 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Extract correct Peugeot project
         run: |
-          unzip Peugeot208OBDTool_Professional_GitHub_v3.1.zip -d project
+          rm -rf project
+          mkdir project
+          unzip -q Peugeot208_Technician_v2_BT_BLE_USB_SOURCE.zip -d project
 
-      - name: Build APK
-        working-directory: project/Peugeot208OBDTool_Professional_GitHub
-        run: gradle assembleDebug
+      - name: Run unit tests
+        working-directory: project/Peugeot208_Technician_Android_v2_GITHUB
+        run: gradle --stacktrace testDebugUnitTest
+
+      - name: Build debug APK
+        working-directory: project/Peugeot208_Technician_Android_v2_GITHUB
+        run: gradle --stacktrace assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: 208-OBD-PRO-APK
-          path: project/Peugeot208OBDTool_Professional_GitHub/app/build/outputs/apk/debug/*.apk
+          name: Peugeot208-Technician-v2-BT-BLE-USB
+          path: project/Peugeot208_Technician_Android_v2_GITHUB/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
