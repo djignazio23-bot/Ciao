@@ -1,0 +1,56 @@
+name: Extract and Build AdaptiveTraderV3
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup .NET 6
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
+      - name: Find and extract project ZIP
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem -Path . -Filter 'AdaptiveTraderV3_PROJECT.zip' -File -Recurse | Select-Object -First 1
+          if (-not $zip) { throw 'AdaptiveTraderV3_PROJECT.zip not found in repository.' }
+          New-Item -ItemType Directory -Force -Path extracted | Out-Null
+          Expand-Archive -Path $zip.FullName -DestinationPath extracted -Force
+      - name: Locate and patch cTrader project
+        id: project
+        shell: pwsh
+        run: |
+          $proj = Get-ChildItem -Path extracted -Filter 'AdaptiveTraderV3.csproj' -File -Recurse | Select-Object -First 1
+          if (-not $proj) { throw 'AdaptiveTraderV3.csproj not found after extraction.' }
+          $xml = Get-Content $proj.FullName -Raw
+          $xml = $xml.Replace('net7.0', 'net6.0')
+          Set-Content -Path $proj.FullName -Value $xml -Encoding UTF8
+          "project=$($proj.FullName)" >> $env:GITHUB_OUTPUT
+          Get-Content $proj.FullName
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore "${{ steps.project.outputs.project }}"
+      - name: Build cTrader cBot
+        shell: pwsh
+        run: dotnet build "${{ steps.project.outputs.project }}" --configuration Release --no-restore -p:AlgoBuild=True -p:AlgoPublish=False -p:IncludeSource=True
+      - name: Locate generated ALGO
+        shell: pwsh
+        run: |
+          $algo = Get-ChildItem -Path extracted -Filter '*.algo' -File -Recurse | Select-Object -First 1
+          if (-not $algo) { throw 'Build completed but no .algo file was generated.' }
+          New-Item -ItemType Directory -Force -Path artifact | Out-Null
+          Copy-Item $algo.FullName artifact/AdaptiveTraderV3.algo -Force
+      - name: Upload AdaptiveTraderV3.algo
+        uses: actions/upload-artifact@v4
+        with:
+          name: AdaptiveTraderV3-algo
+          path: artifact/AdaptiveTraderV3.algo
+          if-no-files-found: error
+          retention-days: 30
