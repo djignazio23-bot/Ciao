@@ -6,9 +6,8 @@ on:
     branches:
       - main
     paths:
-      - '**.cs'
-      - '**.csproj'
-      - '.github/workflows/build-algo.yml'
+      - 'MultiSymbolReactive_Project.zip'
+      - '.github/workflows/build-algo24.yml'
 
 permissions:
   contents: read
@@ -27,12 +26,24 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Extract project ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf bot
+          mkdir -p bot
+          unzip -o MultiSymbolReactive_Project.zip -d bot
+          echo "=== Extracted files ==="
+          find bot -maxdepth 3 -type f -print
+          test -f bot/MultiSymbolReactiveEmaRsiAtrBot.csproj
+          test -f bot/MultiSymbolReactiveEmaRsiAtrBot.cs
+
       - name: Restore NuGet packages
-        run: dotnet restore MultiSymbolReactiveEmaRsiAtrBot.csproj
+        run: dotnet restore bot/MultiSymbolReactiveEmaRsiAtrBot.csproj
 
       - name: Build cBot and generate .algo
         run: >-
-          dotnet build MultiSymbolReactiveEmaRsiAtrBot.csproj
+          dotnet build bot/MultiSymbolReactiveEmaRsiAtrBot.csproj
           --configuration Release
           --no-restore
           -p:AlgoBuild=true
@@ -42,10 +53,11 @@ jobs:
       - name: Locate generated .algo
         shell: bash
         run: |
-          echo "Generated ALGO files:"
-          find . -type f -name '*.algo' -print
+          set -euo pipefail
+          echo "=== Generated ALGO files ==="
+          find bot -type f -name '*.algo' -print
           mkdir -p artifact
-          mapfile -t files < <(find . -type f -name '*.algo')
+          mapfile -t files < <(find bot -type f -name '*.algo')
           if [ "${#files[@]}" -eq 0 ]; then
             echo "ERROR: no .algo file was generated."
             exit 1
